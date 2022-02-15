@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<form>
+
+    from: <select name="currency_from" >
+    {%  for currency in rates_keys %}
+    <option value="{{currency}}">
+        {{currency}}</option>
+    {% endfor %}
+
+
+
+</select>
+
+
+
+
+</form>
+
+
+
+</body>
+</html>
