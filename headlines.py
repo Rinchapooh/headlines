@@ -1,9 +1,9 @@
+import datetime
 import feedparser
 import requests
 
-from flask import Flask
-from flask import render_template
-from flask import request
+from flask import Flask, render_template, request, make_response
+
 
 app = Flask(__name__)
 
@@ -13,8 +13,6 @@ DEFAULTS = {
     'currency_from': 'USD',
     'currency_to': 'KZT'
 }
-
-CURRENCY_URL = "https://openexchangerates.org//api/latest.json?app_id=70e97f32457f47d9b348254bc5da3978"
 
 RSS_FEEDS = {
     'bbc': 'http://feeds.bbci.co.uk/news/rss.xml',
@@ -27,28 +25,40 @@ RSS_FEEDS = {
 
 @app.route("/")
 def home():
-    publication = request.args.get('publication')
-    if not publication:
-        publication = DEFAULTS['publication']
+    # Get customised headlines, based on user input or default
+    publication = get_value_with_fallback("publication")
+    '''publication = request.args.get("publication")
+     if not publication:
+        publication = request.cookies.get("publication")
+        if not publication:
+           publication = DEFAULTS["publication"]
+           '''
     articles = get_news(publication)
 
-    city = request.args.get('city')
-    if not city:
-        city = DEFAULTS['city']
-
+    # Get customised weather, based on user input or default
+    city = get_value_with_fallback('city')
     weather = get_weather(city)
 
     # Get customized currency based on user input or default
-    currency_from = request.args.get('currency_from')
-    if not currency_from:
-        currency_from = DEFAULTS['currency_from']
-    currency_to = request.args.get('currency_to')
-    if not currency_to:
-        currency_to = DEFAULTS['currency_to']
+    currency_from = get_value_with_fallback('currency_from')
+    currency_to = get_value_with_fallback('currency_to')
     rate, all_rates_keys = get_rate(currency_from, currency_to)
 
-    return render_template("home.html", articles=articles, weather=weather, feed_title=publication.upper() + ' ',
-                           currency_from=currency_from, currency_to=currency_to, rate=rate, rates_keys=all_rates_keys)
+    # save cookies and return template
+    response = make_response(render_template("home.html",
+                                             articles=articles,
+                                             weather=weather,
+                                             feed_title=publication.upper() + ' ',
+                                             currency_from=currency_from,
+                                             currency_to=currency_to,
+                                             rate=rate,
+                                             rates_keys=all_rates_keys))
+    expires = datetime.datetime.now() + datetime.timedelta(days=365)
+    response.set_cookie("publication", publication, expires=expires)
+    response.set_cookie("city", city, expires=expires)
+    response.set_cookie("currency_from", currency_from, expires=expires)
+    response.set_cookie("currency_to", currency_to, expires=expires)
+    return response
 
 
 def get_news(query):
@@ -84,8 +94,15 @@ def get_rate(frm, to):
     to_rate = all_currency.get(to.upper())
     pretty_rate = round((to_rate / frm_rate), 2)
     keys_rates = sorted(all_currency.keys())
-    #print(sorted(all_currency.keys()))
     return pretty_rate, keys_rates
+
+
+def get_value_with_fallback(key):
+    if request.args.get(key):
+        return request.args.get(key)
+    if request.cookies.get(key):
+        return request.cookies.get(key)
+    return DEFAULTS[key]
 
 
 if __name__ == '__main__':
